@@ -50,31 +50,19 @@ with st.sidebar:
 
 # 4. Aplica Filtros aos Datasets
 df_pace_full = apply_mtd_pace(data["pace_diario"], f_dia_util)
-# [BASE 1: PACE] Filtrada para o mês selecionado
-df_p_atual = df_pace_full[df_pace_full["mes_referencia"] == f_mes] 
+df_p_atual = df_pace_full[df_pace_full["mes_referencia"] == f_mes]
 
 df_c_raw = apply_filters_detailed(data["cluster"], f_mes, f_iso, f_2030, f_ipp, f_colab, f_tamanho) if "cluster_faturamento" in data["cluster"].columns else data["cluster"]
 df_c_hist = apply_mtd_cluster(df_c_raw, f_dia_util)
-
-# [BASE 2: ESTEIRA] Filtrada para o mês selecionado
 df_det_mes = apply_filters_detailed(data["detalhado"], f_mes, f_iso, f_2030, f_ipp, f_colab, f_tamanho)
 df_det_mes = df_det_mes[df_det_mes["mes_referencia"] == f_mes]
-
-# [BASE 3: CRM/TOPO] - [NOVO] Sincronização do Topo do Funil com o Mês Selecionado
-if not data["topo"].empty and "mes_referencia" in data["topo"].columns:
-    df_topo_atual = data["topo"][data["topo"]["mes_referencia"] == f_mes].copy()
-else:
-    # Prevenção de erro caso a aba não tenha dados
-    df_topo_atual = data["topo"] 
 
 # 5. Interface Principal
 st.title("🚀 Reportologia Inside Sales Outbound")
 tab1, tab2, tab3 = st.tabs(["🎯 Visão End-to-End & Pace", "🔍 Análise de Gaps (Linha a Linha)", "📊 Funil Visual"])
 
 with tab1:
-    # [NOVO] Passamos a base 'df_topo_atual' em vez de 'data["topo"]', 
-    # garantindo que a Tab 1 mostra os dados 100% sincronizados.
-    render_tab_end_to_end(f_mes, f_colab, df_topo_atual, df_p_atual, df_pace_full, df_c_hist)
+    render_tab_end_to_end(f_mes, f_colab, data["topo"], df_p_atual, df_pace_full, df_c_hist)
 
 with tab2:
     render_tab_gaps(f_mes, f_dia_util, data["detalhado"], f_iso, f_2030, f_ipp, f_colab, f_tamanho)

@@ -9,22 +9,32 @@ from components.funil_cards import render_card_topo, render_card_meio, render_ca
 def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_c_hist):
     mes_atual_dt = datetime.strptime(f_mes, "%Y-%m")
     mes_ant_dt = mes_atual_dt - relativedelta(months=1)
+    f_mes_ant = mes_ant_dt.strftime("%Y-%m")
     label_var = f"Var % {MESES_ABREV[mes_atual_dt.month]} x {MESES_ABREV[mes_ant_dt.month]}"
     
     st.markdown(f"<h3 style='margin-bottom: 5px;'>Visão End-to-End | {MESES_PT[mes_atual_dt.month].capitalize()}</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color: #6c757d; margin-bottom: 20px;'>Integração do engajamento de Carteira (CRM) com a performance comercial (Pace).</p>", unsafe_allow_html=True)
     
-    # Preparação de Dados Topo (Ajustado para o novo formato)
+    # Função auxiliar para cálculo de variação
+    def calc_var(atual, ant):
+        return (atual - ant) / ant if ant and ant > 0 else 0.0
+    
+    # ---------------------------------------------
+    # Preparação de Dados Topo
+    # ---------------------------------------------
     df_topo_f = df_topo.copy()
+    df_topo_ant = df_topo.copy()
+    
     if not df_topo_f.empty:
-        # Agora aplicamos o filtro pelo mês selecionado na interface
         if "mes_referencia" in df_topo_f.columns:
             df_topo_f = df_topo_f[df_topo_f["mes_referencia"] == f_mes]
+            df_topo_ant = df_topo_ant[df_topo_ant["mes_referencia"] == f_mes_ant]
         
-        # Filtro de colaborador entra com validação de segurança caso seja removido em definitivo do modelo
         if f_colab != "Todos" and "Colaborador" in df_topo_f.columns:
             df_topo_f = df_topo_f[df_topo_f["Colaborador"] == f_colab]
+            df_topo_ant = df_topo_ant[df_topo_ant["Colaborador"] == f_colab]
             
+    # Topo Atual
     carteira_atual = df_topo_f['Carteira_Atual'].sum() if not df_topo_f.empty else 0
     cart_reuniao = df_topo_f['Carteira_com_Reuniao'].sum() if not df_topo_f.empty else 0
     pct_cart_reuniao = (cart_reuniao / carteira_atual) if carteira_atual > 0 else 0
@@ -35,14 +45,50 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
     pct_cart_ativando = (cart_ativando / carteira_atual) if carteira_atual > 0 else 0
     leads_criados = df_topo_f['Leads_Criados'].sum() if not df_topo_f.empty else 0
     leads_por_contador = (leads_criados / cart_indicando) if cart_indicando > 0 else 0
-  
+
+    # Topo Anterior
+    carteira_atual_ant = df_topo_ant['Carteira_Atual'].sum() if not df_topo_ant.empty else 0
+    cart_reuniao_ant = df_topo_ant['Carteira_com_Reuniao'].sum() if not df_topo_ant.empty else 0
+    qtd_reunioes_ant = df_topo_ant['Quantidade_Reunioes'].sum() if not df_topo_ant.empty else 0
+    cart_indicando_ant = df_topo_ant['Carteira_Indicando'].sum() if not df_topo_ant.empty else 0
+    cart_ativando_ant = df_topo_ant['Carteira_Ativando'].sum() if not df_topo_ant.empty else 0
+    leads_criados_ant = df_topo_ant['Leads_Criados'].sum() if not df_topo_ant.empty else 0
+    leads_por_contador_ant = (leads_criados_ant / cart_indicando_ant) if cart_indicando_ant > 0 else 0
+
+    # Variações Topo
+    var_carteira_atual = calc_var(carteira_atual, carteira_atual_ant)
+    var_cart_reuniao = calc_var(cart_reuniao, cart_reuniao_ant)
+    var_qtd_reunioes = calc_var(qtd_reunioes, qtd_reunioes_ant)
+    var_cart_indicando = calc_var(cart_indicando, cart_indicando_ant)
+    var_cart_ativando = calc_var(cart_ativando, cart_ativando_ant)
+    var_leads_criados = calc_var(leads_criados, leads_criados_ant)
+    var_leads_contador = calc_var(leads_por_contador, leads_por_contador_ant)
+
+    # ---------------------------------------------
     # Preparação Dados Meio e Fundo
+    # ---------------------------------------------
     row = df_p_atual.iloc[0] if not df_p_atual.empty else pd.Series()
+    df_p_ant = df_pace_full[df_pace_full["mes_referencia"] == f_mes_ant]
+    row_ant = df_p_ant.iloc[0] if not df_p_ant.empty else pd.Series()
+
+    # Meio Atual
     l_agendados = row.get("leads_agendados_realizado", 0)
     tx_agend = (l_agendados / leads_criados) if leads_criados > 0 else 0
     d_realizadas = row.get("demos_realizadas_realizado", 0)
+
+    # Meio Anterior
+    l_agendados_ant = row_ant.get("leads_agendados_realizado", 0)
+    tx_agend_ant = (l_agendados_ant / leads_criados_ant) if leads_criados_ant > 0 else 0
+    d_realizadas_ant = row_ant.get("demos_realizadas_realizado", 0)
+
+    # Variações Meio (Nota: taxas são subtraídas para obter pontos percentuais)
+    var_l_agendados = calc_var(l_agendados, l_agendados_ant)
+    var_tx_agend = tx_agend - tx_agend_ant 
+    var_d_realizadas = calc_var(d_realizadas, d_realizadas_ant)
+
+    # Fundo Atual
     l_conquistados = row.get("leads_conquistados_realizado", 0)
-    tx_conv_demos = (l_conquistados / d_realizadas) if d_realizadas > 0 else 0
+    tx_conv_demos = (l_conquistados / l_agendados) if l_agendados > 0 else 0
     a_ativados = row.get("apps_ativados_realizado", 0)
     mult_cnpj = (a_ativados / l_conquistados) if l_conquistados > 0 else 0
     nmrr_sem_bpo = row.get("nmrr_sem_bpo_realizado", 0)
@@ -50,13 +96,57 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
     nmrr_total = nmrr_sem_bpo + nmrr_bpo
     tk_medio = (nmrr_sem_bpo / a_ativados) if a_ativados > 0 else 0
 
+    # Fundo Anterior
+    l_conquistados_ant = row_ant.get("leads_conquistados_realizado", 0)
+    tx_conv_demos_ant = (l_conquistados_ant / l_agendados_ant) if l_agendados_ant > 0 else 0
+    a_ativados_ant = row_ant.get("apps_ativados_realizado", 0)
+    mult_cnpj_ant = (a_ativados_ant / l_conquistados_ant) if l_conquistados_ant > 0 else 0
+    nmrr_sem_bpo_ant = row_ant.get("nmrr_sem_bpo_realizado", 0)
+    nmrr_bpo_ant = row_ant.get("nmrr_bpo_realizado", 0)
+    nmrr_total_ant = nmrr_sem_bpo_ant + nmrr_bpo_ant
+    tk_medio_ant = (nmrr_sem_bpo_ant / a_ativados_ant) if a_ativados_ant > 0 else 0
+
+    # Variações Fundo
+    var_l_conq = calc_var(l_conquistados, l_conquistados_ant)
+    var_tx_conv = tx_conv_demos - tx_conv_demos_ant
+    var_a_ativados = calc_var(a_ativados, a_ativados_ant)
+    var_mult_cnpj = calc_var(mult_cnpj, mult_cnpj_ant)
+    var_tk_medio = calc_var(tk_medio, tk_medio_ant)
+    var_nmrr_bpo = calc_var(nmrr_bpo, nmrr_bpo_ant)
+    var_nmrr_full = calc_var(nmrr_sem_bpo, nmrr_sem_bpo_ant)
+    var_nmrr_total = calc_var(nmrr_total, nmrr_total_ant)
+
+
+    # ---------------------------------------------
+    # Renderização dos Cards
+    # ---------------------------------------------
     c_topo, c_meio, c_fundo = st.columns(3)
     with c_topo:
-        st.markdown(render_card_topo(carteira_atual, cart_reuniao, pct_cart_reuniao, qtd_reunioes, cart_indicando, pct_cart_indicando, cart_ativando, pct_cart_ativando, leads_por_contador, leads_criados), unsafe_allow_html=True)
+        st.markdown(render_card_topo(
+            carteira_atual, carteira_atual_ant, var_carteira_atual, 
+            cart_reuniao, cart_reuniao_ant, var_cart_reuniao, pct_cart_reuniao, 
+            qtd_reunioes, qtd_reunioes_ant, var_qtd_reunioes, 
+            cart_indicando, cart_indicando_ant, var_cart_indicando, pct_cart_indicando, 
+            cart_ativando, cart_ativando_ant, var_cart_ativando, pct_cart_ativando, 
+            leads_por_contador, leads_por_contador_ant, var_leads_contador, 
+            leads_criados, leads_criados_ant, var_leads_criados
+        ), unsafe_allow_html=True)
     with c_meio:
-        st.markdown(render_card_meio(l_agendados, tx_agend, d_realizadas), unsafe_allow_html=True)
+        st.markdown(render_card_meio(
+            l_agendados, l_agendados_ant, var_l_agendados, 
+            tx_agend, tx_agend_ant, var_tx_agend, 
+            d_realizadas, d_realizadas_ant, var_d_realizadas
+        ), unsafe_allow_html=True)
     with c_fundo:
-        st.markdown(render_card_fundo(l_conquistados, tx_conv_demos, a_ativados, mult_cnpj, tk_medio, nmrr_bpo, nmrr_sem_bpo, nmrr_total, formatar_moeda), unsafe_allow_html=True)
+        st.markdown(render_card_fundo(
+            l_conquistados, l_conquistados_ant, var_l_conq, 
+            tx_conv_demos, tx_conv_demos_ant, var_tx_conv, 
+            a_ativados, a_ativados_ant, var_a_ativados, 
+            mult_cnpj, mult_cnpj_ant, var_mult_cnpj, 
+            tk_medio, tk_medio_ant, var_tk_medio, 
+            nmrr_bpo, nmrr_bpo_ant, nmrr_sem_bpo, nmrr_sem_bpo_ant, var_nmrr_bpo, var_nmrr_full, 
+            nmrr_total, nmrr_total_ant, var_nmrr_total, formatar_moeda
+        ), unsafe_allow_html=True)
     
     st.divider()
     st.subheader("🏁 Monitoramento Diário (Pace Metas vs Realizado)")
@@ -125,13 +215,9 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
             pivot_hist[var_col_6m_name] = f"{var_6m:.0f}%"
 
             def style_hist_df(df_styled):
-                # 1. Copia o DF
                 df = df_styled.copy()
-
-                # Identifica as colunas de valores (meses) ignorando as de variação
                 value_cols = [c for c in df.columns if "Var%" not in c]
 
-                # 2. Define o estilo de cor para as colunas de variação finais
                 def style_var_cols(s):
                     val = str_to_float_pct(s)
                     if val >= 0:
@@ -139,19 +225,10 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
                     else:
                         return 'background-color: #f4cccc; color: #cc0000; font-weight: bold;'
 
-                # 3. Cria o Styler garantindo alinhamento central
                 styler = df.style.set_properties(**{'text-align': 'center'})
-
-                # 4. Aplica o heatmap com a paleta RdYlGn (Red, Yellow, Green)
-                # Os menores valores do período ficarão vermelhos, a média amarela e os maiores verdes.
                 styler = styler.background_gradient(cmap='RdYlGn', subset=value_cols, axis=1)
-
-                # 5. Formata a visualização para moeda via Styler
                 styler = styler.format(lambda x: formatar_moeda(x) if pd.notnull(x) else formatar_moeda(0), subset=value_cols)
-
-                # 6. Aplica os estilos das colunas fixas de Var%
                 styler = styler.map(style_var_cols, subset=[var_col_mm_name, var_col_6m_name])
-
                 return styler
 
             st.dataframe(style_hist_df(pivot_hist), use_container_width=True)
