@@ -14,10 +14,15 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
     st.markdown(f"<h3 style='margin-bottom: 5px;'>Visão End-to-End | {MESES_PT[mes_atual_dt.month].capitalize()}</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color: #6c757d; margin-bottom: 20px;'>Integração do engajamento de Carteira (CRM) com a performance comercial (Pace).</p>", unsafe_allow_html=True)
     
-    # Preparação de Dados Topo
+    # Preparação de Dados Topo (Ajustado para o novo formato)
     df_topo_f = df_topo.copy()
-    if not df_topo_f.empty and f_colab != "Todos":
-        if "Colaborador" in df_topo_f.columns:
+    if not df_topo_f.empty:
+        # Agora aplicamos o filtro pelo mês selecionado na interface
+        if "mes_referencia" in df_topo_f.columns:
+            df_topo_f = df_topo_f[df_topo_f["mes_referencia"] == f_mes]
+        
+        # Filtro de colaborador entra com validação de segurança caso seja removido em definitivo do modelo
+        if f_colab != "Todos" and "Colaborador" in df_topo_f.columns:
             df_topo_f = df_topo_f[df_topo_f["Colaborador"] == f_colab]
             
     carteira_atual = df_topo_f['Carteira_Atual'].sum() if not df_topo_f.empty else 0
@@ -30,20 +35,20 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
     pct_cart_ativando = (cart_ativando / carteira_atual) if carteira_atual > 0 else 0
     leads_criados = df_topo_f['Leads_Criados'].sum() if not df_topo_f.empty else 0
     leads_por_contador = (leads_criados / cart_indicando) if cart_indicando > 0 else 0
-    
+  
     # Preparação Dados Meio e Fundo
     row = df_p_atual.iloc[0] if not df_p_atual.empty else pd.Series()
     l_agendados = row.get("leads_agendados_realizado", 0)
     tx_agend = (l_agendados / leads_criados) if leads_criados > 0 else 0
     d_realizadas = row.get("demos_realizadas_realizado", 0)
     l_conquistados = row.get("leads_conquistados_realizado", 0)
-    tx_conv_demos = (l_conquistados / l_agendados) if l_agendados > 0 else 0
+    tx_conv_demos = (l_conquistados / d_realizadas) if d_realizadas > 0 else 0
     a_ativados = row.get("apps_ativados_realizado", 0)
     mult_cnpj = (a_ativados / l_conquistados) if l_conquistados > 0 else 0
     nmrr_sem_bpo = row.get("nmrr_sem_bpo_realizado", 0)
     nmrr_bpo = row.get("nmrr_bpo_realizado", 0)
     nmrr_total = nmrr_sem_bpo + nmrr_bpo
-    tk_medio = (nmrr_total / a_ativados) if a_ativados > 0 else 0
+    tk_medio = (nmrr_sem_bpo / a_ativados) if a_ativados > 0 else 0
 
     c_topo, c_meio, c_fundo = st.columns(3)
     with c_topo:
@@ -62,7 +67,7 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
         nmrr_padrao_meta, nmrr_bpo_meta, nmrr_total_meta = row.get("nmrr_sem_bpo_meta", 0), row.get("nmrr_bpo_meta", 0), row.get("nmrr_total_meta", 0)
         tx_conv_meta = (m_conq / m_demos) if m_demos > 0 else 0
         ind_mult_meta = (m_apps / m_conq) if m_conq > 0 else 0
-        ticket_meta = (nmrr_total_meta / m_apps) if m_apps > 0 else 0
+        ticket_meta = (nmrr_padrao_meta / m_apps) if m_apps > 0 else 0
 
         tabela_pace = pd.DataFrame({
             "Métrica": ["Leads Recebidos (Agendados)", "Demos realizadas", "Leads conquistados", "Tx. Conv. Demos", "Apps Ativados", "Indice de Múltiplo", "Ticket Médio", "NMRR (Sem BPO)", "NMRR BPO", "NMRR Total"],
@@ -114,29 +119,39 @@ def render_tab_end_to_end(f_mes, f_colab, df_topo, df_p_atual, df_pace_full, df_
             mes_ant_str = meses_selecionados[-2] if len(meses_selecionados) > 1 else None
             col_nome_ant = format_mes_yy(mes_ant_str) if mes_ant_str else "Mês Ant."
             
-            var_col_mm_name = f"Var% {col_nome_atual.split('/')[0]}x{col_nome_ant.split('/')[0]}"
-            var_col_6m_name = f"Var% {col_nome_atual.split('/')[0]}x6m"
+            var_col_mm_name = f"Var% {col_nome_atual.split('/')[0]} x {col_nome_ant.split('/')[0]}"
+            var_col_6m_name = f"Var% {col_nome_atual.split('/')[0]} x 6m"
             pivot_hist[var_col_mm_name] = f"{var_mm:.0f}%"
             pivot_hist[var_col_6m_name] = f"{var_6m:.0f}%"
 
             def style_hist_df(df_styled):
-                # 1. Copia o DF e define a formatação de moeda
+                # 1. Copia o DF
                 df = df_styled.copy()
-                format_dict = {col: formatar_moeda for col in df.columns if "Var%" not in col}
-                
-                # 2. Define o estilo de cor para as colunas de variação
+
+                # Identifica as colunas de valores (meses) ignorando as de variação
+                value_cols = [c for c in df.columns if "Var%" not in c]
+
+                # 2. Define o estilo de cor para as colunas de variação finais
                 def style_var_cols(s):
                     val = str_to_float_pct(s)
                     if val >= 0:
                         return 'background-color: #d9ead3; color: #274e13; font-weight: bold;'
                     else:
                         return 'background-color: #f4cccc; color: #cc0000; font-weight: bold;'
-                
-                # 3. Aplica todos os estilos
-                styler = df.style.format(format_dict)
-                styler = styler.set_properties(**{'text-align': 'center'})
+
+                # 3. Cria o Styler garantindo alinhamento central
+                styler = df.style.set_properties(**{'text-align': 'center'})
+
+                # 4. Aplica o heatmap com a paleta RdYlGn (Red, Yellow, Green)
+                # Os menores valores do período ficarão vermelhos, a média amarela e os maiores verdes.
+                styler = styler.background_gradient(cmap='RdYlGn', subset=value_cols, axis=1)
+
+                # 5. Formata a visualização para moeda via Styler
+                styler = styler.format(lambda x: formatar_moeda(x) if pd.notnull(x) else formatar_moeda(0), subset=value_cols)
+
+                # 6. Aplica os estilos das colunas fixas de Var%
                 styler = styler.map(style_var_cols, subset=[var_col_mm_name, var_col_6m_name])
-                
+
                 return styler
 
             st.dataframe(style_hist_df(pivot_hist), use_container_width=True)

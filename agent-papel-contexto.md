@@ -9,5 +9,5 @@ Objetivos Técnicos:
 - Consolidar essas informações e exportar os resultados para uma pasta chamada processed_data no formato Excel (.xlsx), prontos para consumo.
 
 Diretrizes de Código:
-- Escreva códigos limpos, sem emojis, comentarios excessivos, documentados e com tratamento de erros (por exemplo, avisar se o arquivo não for encontrado na pasta).
+- Escreva códigos limpos, sem emojis, apenas comentarios essenciais mas nada excessivo, documentados e com tratamento de erros (por exemplo, avisar se o arquivo não for encontrado na pasta).
 - sempre forneça um resumo a lógica, indique em qual arquivo devo salvar o código.

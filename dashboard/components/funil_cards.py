@@ -77,7 +77,7 @@ def render_card_fundo(l_conquistados, tx_conv_demos, a_ativados, mult_cnpj, tk_m
 <div style="flex-grow: 1; display: flex; flex-direction: column;">
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
 <div style="background: linear-gradient(145deg, #f8f9fa, #e9ecef); padding: 15px; border-radius: 12px; text-align: center; border-bottom: 3px solid #6c757d; box-shadow: inset 0 2px 5px rgba(255,255,255,1), 0 2px 4px rgba(0,0,0,0.02);">
-<div style="color: #6c757d; font-size: 10px; font-weight: 800; letter-spacing: 1px; margin-bottom: 5px;">VENDAS</div>
+<div style="color: #6c757d; font-size: 10px; font-weight: 800; letter-spacing: 1px; margin-bottom: 5px;">LEADS CONQUISTADOS</div>
 <div style="font-size: 26px; font-weight: 900; color: #343a40; line-height: 1;">{int(l_conquistados)}</div>
 </div>
 <div style="background: linear-gradient(145deg, #f0fdf4, #dcfce7); padding: 15px; border-radius: 12px; text-align: center; border-bottom: 3px solid #198754; box-shadow: inset 0 2px 5px rgba(255,255,255,1), 0 2px 4px rgba(25, 135, 84, 0.05);">

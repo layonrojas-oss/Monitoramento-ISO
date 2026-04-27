@@ -12,7 +12,7 @@ def load_data():
     
     arquivos_pace = sorted(glob.glob(os.path.join(proc_dir, "pace_comercial_outbound_*.xlsx")))
     arquivos_esteira = sorted(glob.glob(os.path.join(proc_dir, "analise_gaps_esteira_*.xlsx")))
-    arquivos_crm = sorted(glob.glob(os.path.join(proc_dir, "*_Relatorio_Funil_IS.xlsx")))
+    arquivos_crm = sorted(glob.glob(os.path.join(proc_dir, "*analise_jornada_sc_iso_*.xlsx")))
     
     if not arquivos_pace or not arquivos_esteira:
         st.error(f"Arquivos de dados processados não encontrados em {proc_dir}")

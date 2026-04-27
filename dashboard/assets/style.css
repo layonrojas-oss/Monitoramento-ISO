@@ -1,0 +1,42 @@
+.metric-row { font-size: 14px; font-weight: bold; }
+div[data-testid="metric-container"] {
+    background-color: #f8f9fa; border: 1px solid #e9ecef; padding: 5%; border-radius: 5px;
+}
+.stDataFrame table th {
+    text-align: center !important;
+    background-color: #003366 !important;
+    color: white !important;
+}
+
+/* ESTILOS CUSTOMIZADOS PARA OS CARDS DO FUNIL E2E */
+.funnel-card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.funnel-card-topo { border-top: 6px solid #003366; }
+.funnel-card-meio { border-top: 6px solid #fd7e14; }
+.funnel-card-fundo { border-top: 6px solid #198754; }
+
+.funnel-title { margin: 0 0 5px 0; font-size: 18px; font-weight: bold; }
+.funnel-subtitle { color: #6c757d; font-size: 13px; margin: 0 0 15px 0; }
+
+.funnel-highlight {
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    margin-top: auto;
+}
+.funnel-highlight-title { font-size: 12px; font-weight: bold; margin-bottom: 5px; letter-spacing: 0.5px;}
+.funnel-highlight-value { font-size: 28px; font-weight: bold; }
+
+.e2e-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 15px;}
+.e2e-table td { padding: 8px 0; border-bottom: 1px solid #f1f3f5; }
+.e2e-table tr:last-child td { border-bottom: none; }
+.e2e-label { color: #495057; }
+.e2e-val { text-align: right; font-weight: 600; color: #212529; }
+.e2e-sub { font-size: 11px; font-weight: normal; margin-left: 5px; }

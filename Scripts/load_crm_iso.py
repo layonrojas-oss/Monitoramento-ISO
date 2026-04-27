@@ -1,31 +1,25 @@
 # -*- coding: utf-8 -*-
-
 import pandas as pd
 import os
 from datetime import datetime
 
 diretorio_bruto = "dados_brutos"
-nome_arquivo = "2026_04_crm_jornada_sc_is_outbound.xlsx"
+nome_arquivo = "base_jornada_sc_iso.xlsx"
 caminho_arquivo = os.path.join(diretorio_bruto, nome_arquivo)
 
-# 1. Adicionadas as colunas necessárias para as métricas de TOPO DO FUNIL
+# 1. Ajuste das colunas para refletir a nova CTE (agrupada por ano/mes)
 colunas_selecionadas = [
-    'CNPJ Contador',
-    'Contabilidade',
-    'Porte Faturamento',
-    'Status da última Oportunidade CRM',
-    'Fase da última Oportunidade CRM',
-    'Tarefas Agendadas Realizadas no Mês Atual',
-    'Reuniões Realizadas no Mês Atual', # Necessário para Topo
-    'Leads no Mês',                     # Necessário para Topo
-    'Apps Ativados no Mês',             # Necessário para Topo
-    'NMRR no Mês',
-    'MRR Geral',
-    'Apps Ativados Geral',
-    'Apps Ativos',
-    'Colaborador',
-    'Função',
-    'Time Comercial'
+    'ano',
+    'mes',
+    'carteira_atual',
+    'carteira_ativando',
+    'pct_carteira_ativando',
+    'carteira_indicando',
+    'pct_carteira_indicando',
+    'leads_por_contador',
+    'carteira_reuniao_realizada',
+    'pct_carteira_reuniao_realizada',
+    'qtd_reunioes'
 ]
 
 try:
@@ -38,88 +32,49 @@ try:
     print("Carregando arquivo: " + caminho_arquivo)
     df = pd.read_excel(caminho_arquivo, usecols=colunas_selecionadas, engine='openpyxl')
     
-    # Garantir que as colunas numéricas de topo de funil sejam tratadas como números (evitar erros de NaN ou texto)
-    colunas_numericas = ['Reuniões Realizadas no Mês Atual', 'Leads no Mês', 'Apps Ativados no Mês']
-    for col in colunas_numericas:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
-    print("\nCalculando métricas de Topo de Funil (Base Completa)...")
+    print("\nProcessando métricas da nova estrutura (CTE Jornada)...")
     
-    # ==========================================
-    # MÓDULO 1: TOPO DO FUNIL (Base Completa)
-    # ==========================================
-    # Agrupamento primário por Colaborador
-    topo_funil = df.groupby('Colaborador').agg(
-        Carteira_Atual=('CNPJ Contador', 'count'),
-        Quantidade_Reunioes=('Reuniões Realizadas no Mês Atual', 'sum'),
-        Leads_Criados=('Leads no Mês', 'sum'),
-        Apps_Ativados=('Apps Ativados no Mês', 'sum')
-    ).reset_index()
+    # Criar a coluna 'mes_referencia' no formato YYYY-MM para o dashboard
+    df['mes_referencia'] = df.apply(lambda x: f"{int(x['ano'])}-{int(x['mes']):02d}", axis=1)
 
-    # Contagem de quantas carteiras (CNPJs) tiveram pelo menos 1 ação no mês
-    cart_reuniao = df[df['Reuniões Realizadas no Mês Atual'] > 0].groupby('Colaborador').size().reset_index(name='Carteira_com_Reuniao')
-    cart_indicando = df[df['Leads no Mês'] > 0].groupby('Colaborador').size().reset_index(name='Carteira_Indicando')
-    cart_ativando = df[df['Apps Ativados no Mês'] > 0].groupby('Colaborador').size().reset_index(name='Carteira_Ativando')
+    # Renomear as colunas para o padrão que o dashboard (tab_end_to_end) já espera
+    df_renamed = df.rename(columns={
+        'carteira_atual': 'Carteira_Atual',
+        'carteira_reuniao_realizada': 'Carteira_com_Reuniao',
+        'qtd_reunioes': 'Quantidade_Reunioes',
+        'carteira_indicando': 'Carteira_Indicando',
+        'carteira_ativando': 'Carteira_Ativando',
+        # A CTE chama de leads_por_contador, mas representa a contagem total de leads (count distinct b.op_id)
+        'leads_por_contador': 'Leads_Criados' 
+    })
+    
+    # Preencher valores nulos com 0
+    df_renamed.fillna(0, inplace=True)
 
-    # Mesclar as contagens no dataframe principal de Topo
-    topo_funil = topo_funil.merge(cart_reuniao, on='Colaborador', how='left').fillna(0)
-    topo_funil = topo_funil.merge(cart_indicando, on='Colaborador', how='left').fillna(0)
-    topo_funil = topo_funil.merge(cart_ativando, on='Colaborador', how='left').fillna(0)
-
-    # Calcular as taxas de conversão/engajamento de Topo (em %)
-    topo_funil['% Cart. com Reunião'] = topo_funil['Carteira_com_Reuniao'] / topo_funil['Carteira_Atual']
-    topo_funil['% Cart. Indicando'] = topo_funil['Carteira_Indicando'] / topo_funil['Carteira_Atual']
-    topo_funil['% Cart. Ativando'] = topo_funil['Carteira_Ativando'] / topo_funil['Carteira_Atual']
-
-    # Reordenar as colunas para o Excel ficar intuitivo
+    # Ordenar as colunas
     ordem_colunas_topo = [
-        'Colaborador', 'Carteira_Atual', 
-        'Carteira_com_Reuniao', '% Cart. com Reunião', 'Quantidade_Reunioes',
-        'Carteira_Indicando', '% Cart. Indicando', 'Leads_Criados',
-        'Carteira_Ativando', '% Cart. Ativando', 'Apps_Ativados'
+        'mes_referencia', 
+        'Carteira_Atual', 
+        'Carteira_com_Reuniao', 
+        'pct_carteira_reuniao_realizada', 
+        'Quantidade_Reunioes',
+        'Carteira_Indicando', 
+        'pct_carteira_indicando', 
+        'Leads_Criados',
+        'Carteira_Ativando', 
+        'pct_carteira_ativando'
     ]
-    topo_funil = topo_funil[ordem_colunas_topo]
+    topo_funil = df_renamed[ordem_colunas_topo]
 
+    # MÓDULO 2: Visão de Oportunidades não está mais presente na nova CTE.
+    # Geramos um DataFrame vazio para manter compatibilidade com a exportação final.
+    visao_geral_funil = pd.DataFrame(columns=[
+        'Fase da última Oportunidade CRM', 'Total_Oportunidades', 'Total_NMRR_no_Mes', 'Total_Apps_Ativados_no_Mes'
+    ])
 
-    # ==========================================
-    # MÓDULO 2: MEIO E FUNDO DO FUNIL (Apenas Oportunidades)
-    # ==========================================
-    # Remover linhas onde a fase da oportunidade é nula ou vazia para o funil de vendas.
-    df_ops = df[df['Fase da última Oportunidade CRM'].notna()]
-    df_ops = df_ops[df_ops['Fase da última Oportunidade CRM'].astype(str).str.strip() != '']
-    
-    agrupamento_fase = df_ops.groupby(['Colaborador', 'Fase da última Oportunidade CRM']).size()
-    
-    # Calcular a taxa de conversão de Qualificação para Apresentação.
-    oportunidades_qualificacao = df_ops[df_ops['Fase da última Oportunidade CRM'] == '03. Qualificação']
-    oportunidades_apresentacao = df_ops[df_ops['Fase da última Oportunidade CRM'] == '04. Apresentação']
-    total_qualificacao = len(oportunidades_qualificacao)
-    total_apresentacao = len(oportunidades_apresentacao)
-    
-    taxa_conversao = total_apresentacao / total_qualificacao if total_qualificacao > 0 else None
-
-    # Consolidar a Visão Geral do Funil por fase
-    visao_geral_funil = df_ops.groupby('Fase da última Oportunidade CRM').agg(
-        Total_Oportunidades=('Fase da última Oportunidade CRM', 'size'),
-        Total_NMRR_no_Mes=('NMRR no Mês', 'sum'),
-        Total_Apps_Ativados_no_Mes=('Apps Ativados no Mês', 'sum')
-    ).reset_index()
-
-    total_fase_03 = visao_geral_funil.loc[visao_geral_funil['Fase da última Oportunidade CRM'] == '03. Qualificação', 'Total_Oportunidades']
-    total_fase_04 = visao_geral_funil.loc[visao_geral_funil['Fase da última Oportunidade CRM'] == '04. Apresentação', 'Total_Oportunidades']
-    
-    total_fase_03 = int(total_fase_03.iloc[0]) if not total_fase_03.empty else 0
-    total_fase_04 = int(total_fase_04.iloc[0]) if not total_fase_04.empty else 0
-    
-    taxa_conversao_geral = total_fase_04 / total_fase_03 if total_fase_03 > 0 else None
-
-    # ==========================================
-    # MÓDULO 3: EXPORTAÇÃO
-    # ==========================================
     diretorio_processado = 'dados_processados'
     os.makedirs(diretorio_processado, exist_ok=True)
-    nome_arquivo_saida = datetime.now().strftime('%Y_%m_Relatorio_Funil_IS.xlsx')
+    nome_arquivo_saida = datetime.now().strftime('analise_jornada_sc_iso_%Y_%m_%d.xlsx')
     caminho_saida = os.path.join(diretorio_processado, nome_arquivo_saida)
     
     with pd.ExcelWriter(caminho_saida, engine='openpyxl') as writer:
@@ -132,10 +87,7 @@ try:
     print("\n" + "="*60)
     print("CONSOLIDAÇÃO CONCLUÍDA COM SUCESSO")
     print("="*60)
-    print(f"Total de Linhas Analisadas (Base Completa): {len(df)}")
-    print(f"Total de Oportunidades Ativas: {len(df_ops)}")
-    if taxa_conversao is not None:
-        print(f"Taxa de Conversão Geral (03 para 04): {taxa_conversao_geral:.2%}")
+    print(f"Total de Meses Processados: {len(df)}")
     print("="*60)
 
 except Exception as e:
